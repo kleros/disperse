@@ -487,12 +487,19 @@ h1 sup .chain-selector-dropdown {
   margin: 0 auto 1rem;
   border: 2px solid #111111;
   background: #f5f5f5;
-  min-height: 50px;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: none;
+  margin: 0;
 }
 
 #qr-reader.scanning {
-  border-color: #9013fe;
+  height: auto;
+  min-height: 50px;
+  border: 2px solid #9013fe;
   background: transparent;
+  margin: 0 auto 1rem;
 }
 
 #qr-reader > div {
