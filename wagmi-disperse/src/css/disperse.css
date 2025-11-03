@@ -619,3 +619,22 @@ h1 sup .chain-selector-dropdown {
 .amount-input:focus {
   outline: none;
 }
+
+/* Footer styles */
+.app-footer {
+  margin-top: 6rem;
+  padding-top: 2rem;
+  border-top: 1px solid #ccc;
+}
+
+.app-footer p {
+  font-size: 1rem;
+  color: #666;
+  text-align: center;
+}
+
+.app-footer a {
+  text-decoration: none;
+  background: none;
+  text-shadow: none;
+}

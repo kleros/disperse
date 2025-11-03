@@ -292,6 +292,19 @@ function App() {
           recipientsCount={recipients.length}
         />
       </Suspense>
+
+      <footer className="app-footer">
+        <p>
+          Built on{" "}
+          <a href="https://disperse.app" target="_blank" rel="noopener noreferrer">
+            disperse.app
+          </a>
+          {" "}by{" "}
+          <a href="https://x.com/bantg" target="_blank" rel="noopener noreferrer">
+            banteg
+          </a>
+        </p>
+      </footer>
     </article>
   );
 }
