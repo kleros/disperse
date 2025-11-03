@@ -81,7 +81,7 @@ textarea {
   display: block;
   border: none;
   border-bottom: 2px #111111 solid;
-  background: aquamarine;
+  background: #9013fe;
   padding: .7rem;
   font-size: 1.4rem;
   width: 100%;
@@ -99,8 +99,8 @@ input[type="submit"] {
   border: none;
   font-style: italic;
   padding: .7rem;
-  background: aquamarine;
-  box-shadow: 6px 6px crimson;
+  background: #9013fe;
+  box-shadow: 6px 6px #009aff;
 }
 
 input[type="submit"]:focus {
@@ -108,7 +108,7 @@ input[type="submit"]:focus {
 }
 
 .red {
-  color: crimson;
+  color: #009aff;
 }
 
 .info {
@@ -127,7 +127,7 @@ input[type="submit"]:focus {
 
 .error {
   font-style: italic;
-  color: crimson;
+  color: #009aff;
 }
 
 .pending {
@@ -148,7 +148,7 @@ input[type="submit"]:focus {
 }
 
 .negative {
-  color: crimson;
+  color: #009aff;
 }
 
 .warning {
@@ -159,7 +159,7 @@ input[type="submit"]:focus {
 }
 
 .checking {
-  color: crimson;
+  color: #009aff;
   font-style: italic;
 }
 
@@ -217,7 +217,7 @@ input[type="submit"]:disabled {
 
 .secondary input {
   background: none;
-  border: 1px crimson solid;
+  border: 1px #009aff solid;
 }
 
 @keyframes pulse {
@@ -263,7 +263,7 @@ input[type="submit"]:disabled {
 .chooser input[type="radio"]:checked + label {
   color: #111111;
   border-bottom: 2px #111111 solid;
-  background: aquamarine;
+  background: #9013fe;
 }
 
 /* Logo styles from disperse-logo.tag */
@@ -301,11 +301,11 @@ header a {
 }
 
 .active svg path {
-  fill: aquamarine !important;
+  fill: #4D00B4 !important;
 }
 
 .inactive svg path {
-  fill: crimson !important;
+  fill: #009aff !important;
 }
 
 /* Chain Selector Styles */
@@ -319,7 +319,7 @@ header a {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.8rem;
-  background-color: aquamarine;
+  background-color: #9013fe;
   border: 1px solid #111;
   border-radius: 4px;
   font-size: 1rem;
@@ -328,7 +328,7 @@ header a {
 }
 
 .chain-selector-button:hover {
-  background-color: #7fffd4cc;
+  background-color: #f5f5f5;
 }
 
 .chain-selector-dropdown {
@@ -370,7 +370,7 @@ header a {
 }
 
 .chain-selector-option.active {
-  background-color: aquamarine;
+  background-color: #9013fe;
 }
 
 /* Chain selector search input */
@@ -491,7 +491,7 @@ h1 sup .chain-selector-dropdown {
 }
 
 #qr-reader.scanning {
-  border-color: aquamarine;
+  border-color: #9013fe;
   background: transparent;
 }
 
@@ -503,8 +503,8 @@ h1 sup .chain-selector-dropdown {
   border: none;
   font-style: italic;
   padding: .7rem;
-  background: aquamarine;
-  box-shadow: 6px 6px crimson;
+  background: #9013fe;
+  box-shadow: 6px 6px #009aff;
   cursor: pointer;
   font-size: 1.4rem;
   margin-bottom: 1rem;
@@ -515,11 +515,12 @@ h1 sup .chain-selector-dropdown {
 }
 
 .qr-scan-button:hover {
-  background: #7fffd4cc;
+  color: #9013fe;
+  background: #f5f5f5;
 }
 
 .error-message {
-  color: crimson;
+  color: #009aff;
   font-style: italic;
   margin-top: 0.5rem;
 }
@@ -551,7 +552,7 @@ h1 sup .chain-selector-dropdown {
   justify-content: space-between;
   align-items: center;
   padding: 0.7rem;
-  background: aquamarine;
+  background: #9013fe;
   border-bottom: 2px solid #111111;
   margin-bottom: 0.5rem;
   font-family: monospace;
@@ -585,9 +586,9 @@ h1 sup .chain-selector-dropdown {
 }
 
 .remove-button {
-  background: crimson;
+  background: #009aff;
   color: white;
-  border-color: crimson;
+  border-color: #009aff;
 }
 
 .remove-button:hover {
@@ -608,7 +609,7 @@ h1 sup .chain-selector-dropdown {
   display: block;
   border: none;
   border-bottom: 2px #111111 solid;
-  background: aquamarine;
+  background: #f5f5f5;
   padding: .7rem;
   font-size: 1.4rem;
   width: 100%;

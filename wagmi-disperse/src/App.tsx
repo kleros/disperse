@@ -7,7 +7,6 @@ import CurrencySelector from "./components/CurrencySelector";
 import Header from "./components/Header";
 import NetworkStatus from "./components/NetworkStatus";
 import QRRecipientInput from "./components/QRRecipientInput";
-import TokenLoader from "./components/TokenLoader";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
 import { AppState } from "./constants";
@@ -15,7 +14,7 @@ import { useAppState } from "./hooks/useAppState";
 import { useContractVerification } from "./hooks/useContractVerification";
 import { useCurrencySelection } from "./hooks/useCurrencySelection";
 import { useTokenAllowance } from "./hooks/useTokenAllowance";
-import type { Recipient, TokenInfo } from "./types";
+import type { Recipient } from "./types";
 import {
   getBalance,
   getDecimals,
@@ -27,6 +26,14 @@ import {
 } from "./utils/balanceCalculations";
 import { canDeployToNetwork } from "./utils/contractVerify";
 
+// PNK token constant for Arbitrum Sepolia
+const PNK_TOKEN = {
+  address: "0xA13c3e5f8F19571859F4Ab1003B960a5DF694C10" as `0x${string}`,
+  symbol: "PNK",
+  name: "Kleros",
+  decimals: 18,
+};
+
 function App() {
   const config = useConfig();
   const chainId = useChainId();
@@ -35,6 +42,14 @@ function App() {
     address,
     chainId: chainId,
   });
+
+  // Fetch PNK token balance
+  const { data: pnkBalanceData } = useBalance({
+    address,
+    token: PNK_TOKEN.address,
+    chainId: chainId,
+  });
+
   const { connectors, connect } = useConnect();
 
   const isChainSupported = chainId ? config.chains.some((chain) => chain.id === chainId) : false;
@@ -56,6 +71,7 @@ function App() {
   }, []);
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [amount, setAmount] = useState<string>("");
   const walletStatus = status === "connected" ? `logged in as ${address}` : "please unlock wallet";
 
   const { sending, token, setSending, setToken } = useCurrencySelection();
@@ -86,11 +102,6 @@ function App() {
     [sending, token, setAppState],
   );
 
-  const resetToken = useCallback(() => {
-    setToken({});
-    setAppState(AppState.CONNECTED_TO_WALLET);
-  }, [setToken, setAppState]);
-
   const selectCurrency = useCallback(
     (type: "ether" | "token") => {
       setSending(type);
@@ -98,24 +109,17 @@ function App() {
       if (type === "ether") {
         setAppState(AppState.SELECTED_CURRENCY);
       } else if (type === "token") {
-        if (token.address && token.decimals !== undefined && token.symbol) {
-          setAppState(AppState.SELECTED_CURRENCY);
-        } else {
-          resetToken();
-        }
+        // Auto-populate PNK token
+        setToken(PNK_TOKEN);
+        setAppState(AppState.SELECTED_CURRENCY);
       }
     },
-    [setSending, setAppState, token, resetToken],
+    [setSending, setAppState, setToken],
   );
 
-  const selectToken = useCallback(
-    (tokenInfo: TokenInfo) => {
-      setToken(tokenInfo);
-      setSending("token");
-      setAppState(AppState.SELECTED_CURRENCY);
-    },
-    [setToken, setSending, setAppState],
-  );
+  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmount(e.target.value);
+  }, []);
 
   // Use reactive allowance hook
   const { allowance: currentAllowance } = useTokenAllowance({
@@ -202,19 +206,30 @@ function App() {
         </section>
       )}
 
-      {appState >= AppState.CONNECTED_TO_WALLET && sending === "token" && (
+      {appState >= AppState.SELECTED_CURRENCY && (
         <section>
-          <TokenLoader
-            onSelect={selectToken}
-            onError={resetToken}
-            chainId={chainId}
-            account={address}
-            token={token}
-            contractAddress={verifiedAddress?.address}
-          />
-          {token.symbol && (
+          <h2>amount to send</h2>
+          <p>Enter the amount in {symbol} to send to each address (up to 18 decimals).</p>
+          <div className="shadow">
+            <input
+              type="text"
+              value={amount}
+              onChange={handleAmountChange}
+              placeholder={`0.0 ${symbol}`}
+              className="amount-input"
+              pattern="[0-9]*\.?[0-9]*"
+            />
+          </div>
+          {sending === "ether" && (
             <p className="mt">
-              you have {formatUnits(token.balance || 0n, token.decimals || 18)} {token.symbol}
+              you have {formatUnits(balanceData?.value || 0n, 18)} {nativeCurrencyName}
+              {balanceData?.value === 0n && chainId && <span className="warning">(make sure to add funds)</span>}
+            </p>
+          )}
+          {sending === "token" && token.symbol && (
+            <p className="mt">
+              you have {formatUnits(pnkBalanceData?.value || 0n, token.decimals || 18)} {token.symbol}
+              {pnkBalanceData?.value === 0n && chainId && <span className="warning">(make sure to add funds)</span>}
             </p>
           )}
         </section>
@@ -230,7 +245,12 @@ function App() {
         ((appState >= AppState.CONNECTED_TO_WALLET && sending === "ether") ||
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
-          <QRRecipientInput sending={sending} token={token} onRecipientsChange={handleRecipientsChange} />
+          <QRRecipientInput
+            sending={sending}
+            token={token}
+            amount={amount}
+            onRecipientsChange={handleRecipientsChange}
+          />
         )}
 
       {appState >= AppState.ENTERED_AMOUNTS && (

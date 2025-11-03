@@ -1,6 +1,4 @@
 import { type ChangeEvent, useState } from "react";
-import { useChainId } from "wagmi";
-import { nativeCurrencyName } from "../networks";
 
 interface CurrencySelectorProps {
   onSelect: (type: "ether" | "token") => void;
@@ -8,10 +6,6 @@ interface CurrencySelectorProps {
 
 const CurrencySelector = ({ onSelect }: CurrencySelectorProps) => {
   const [selectedCurrency, setSelectedCurrency] = useState<"ether" | "token">("ether");
-  const chainId = useChainId();
-
-  // Get native currency name for display
-  const nativeCurrency = nativeCurrencyName(chainId);
 
   // Don't auto-select ether on mount - this causes issues when switching back from token
   // The parent component should control the initial state instead
@@ -33,7 +27,7 @@ const CurrencySelector = ({ onSelect }: CurrencySelectorProps) => {
         checked={selectedCurrency === "ether"}
         onChange={handleChange}
       />
-      <label htmlFor="ether">{nativeCurrency}</label>
+      <label htmlFor="ether">Ether</label>
       <span>or</span>
       <input
         type="radio"
@@ -43,7 +37,7 @@ const CurrencySelector = ({ onSelect }: CurrencySelectorProps) => {
         checked={selectedCurrency === "token"}
         onChange={handleChange}
       />
-      <label htmlFor="token">token</label>
+      <label htmlFor="token">PNK</label>
     </div>
   );
 };
