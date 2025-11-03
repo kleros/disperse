@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useBalance, useChainId, useConfig, useConnect } from "wagmi";
 
@@ -6,7 +6,7 @@ import { Suspense, lazy } from "react";
 import CurrencySelector from "./components/CurrencySelector";
 import Header from "./components/Header";
 import NetworkStatus from "./components/NetworkStatus";
-import RecipientInput from "./components/RecipientInput";
+import QRRecipientInput from "./components/QRRecipientInput";
 import TokenLoader from "./components/TokenLoader";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
@@ -26,7 +26,6 @@ import {
   getTotalAmount,
 } from "./utils/balanceCalculations";
 import { canDeployToNetwork } from "./utils/contractVerify";
-import { parseRecipients } from "./utils/parseRecipients";
 
 function App() {
   const config = useConfig();
@@ -58,7 +57,6 @@ function App() {
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const walletStatus = status === "connected" ? `logged in as ${address}` : "please unlock wallet";
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { sending, token, setSending, setToken } = useCurrencySelection();
 
@@ -73,23 +71,6 @@ function App() {
     sending,
     token,
   });
-
-  const parseAmounts = useCallback(() => {
-    if (!textareaRef.current) return;
-
-    const text = textareaRef.current.value;
-    const decimals = getDecimals(sending, token);
-    const newRecipients = parseRecipients(text, decimals);
-
-    setRecipients(newRecipients);
-
-    if (
-      newRecipients.length &&
-      (sending === "ether" || (sending === "token" && token.address && token.decimals !== undefined))
-    ) {
-      setAppState(AppState.ENTERED_AMOUNTS);
-    }
-  }, [sending, token, setAppState]);
 
   const handleRecipientsChange = useCallback(
     (newRecipients: Recipient[]) => {
@@ -116,25 +97,15 @@ function App() {
 
       if (type === "ether") {
         setAppState(AppState.SELECTED_CURRENCY);
-        requestAnimationFrame(() => {
-          if (textareaRef.current?.value) {
-            parseAmounts();
-          }
-        });
       } else if (type === "token") {
         if (token.address && token.decimals !== undefined && token.symbol) {
           setAppState(AppState.SELECTED_CURRENCY);
-          requestAnimationFrame(() => {
-            if (textareaRef.current?.value) {
-              parseAmounts();
-            }
-          });
         } else {
           resetToken();
         }
       }
     },
-    [setSending, setAppState, token, parseAmounts, resetToken],
+    [setSending, setAppState, token, resetToken],
   );
 
   const selectToken = useCallback(
@@ -142,19 +113,8 @@ function App() {
       setToken(tokenInfo);
       setSending("token");
       setAppState(AppState.SELECTED_CURRENCY);
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            if (tokenInfo.decimals !== undefined) {
-              parseAmounts();
-            }
-          }
-        });
-      });
     },
-    [setToken, setSending, setAppState, parseAmounts],
+    [setToken, setSending, setAppState],
   );
 
   // Use reactive allowance hook
@@ -270,7 +230,7 @@ function App() {
         ((appState >= AppState.CONNECTED_TO_WALLET && sending === "ether") ||
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
-          <RecipientInput sending={sending} token={token} onRecipientsChange={handleRecipientsChange} />
+          <QRRecipientInput sending={sending} token={token} onRecipientsChange={handleRecipientsChange} />
         )}
 
       {appState >= AppState.ENTERED_AMOUNTS && (
