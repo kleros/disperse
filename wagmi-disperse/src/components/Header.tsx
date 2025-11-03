@@ -1,6 +1,5 @@
 import { useDisconnect, useEnsName } from "wagmi";
 import { explorerAddr } from "../networks";
-import ChainSelector from "./ChainSelector";
 
 interface HeaderProps {
   chainId: number | undefined;
@@ -43,9 +42,7 @@ const Header = ({ chainId, address }: HeaderProps) => {
         </div>
         <h1>
           disperse
-          <sup>
-            <ChainSelector />
-          </sup>
+          {/* ChainSelector hidden - using Arbitrum Sepolia only */}
         </h1>
         <div className="expand" />
         {address && (

@@ -249,7 +249,7 @@ const TokenLoader = ({ onSelect, onError, chainId, account, token, contractAddre
               border: "none",
               borderBottom: "2px #111 solid",
               padding: ".7rem",
-              background: "aquamarine",
+              background: "#4D00B4",
               marginRight: "1.4rem",
             }}
           />

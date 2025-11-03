@@ -81,7 +81,7 @@ textarea {
   display: block;
   border: none;
   border-bottom: 2px #111111 solid;
-  background: aquamarine;
+  background: #9013fe;
   padding: .7rem;
   font-size: 1.4rem;
   width: 100%;
@@ -99,8 +99,8 @@ input[type="submit"] {
   border: none;
   font-style: italic;
   padding: .7rem;
-  background: aquamarine;
-  box-shadow: 6px 6px crimson;
+  background: #9013fe;
+  box-shadow: 6px 6px #009aff;
 }
 
 input[type="submit"]:focus {
@@ -108,7 +108,7 @@ input[type="submit"]:focus {
 }
 
 .red {
-  color: crimson;
+  color: #009aff;
 }
 
 .info {
@@ -127,7 +127,7 @@ input[type="submit"]:focus {
 
 .error {
   font-style: italic;
-  color: crimson;
+  color: #009aff;
 }
 
 .pending {
@@ -148,7 +148,7 @@ input[type="submit"]:focus {
 }
 
 .negative {
-  color: crimson;
+  color: #009aff;
 }
 
 .warning {
@@ -159,7 +159,7 @@ input[type="submit"]:focus {
 }
 
 .checking {
-  color: crimson;
+  color: #009aff;
   font-style: italic;
 }
 
@@ -217,7 +217,7 @@ input[type="submit"]:disabled {
 
 .secondary input {
   background: none;
-  border: 1px crimson solid;
+  border: 1px #009aff solid;
 }
 
 @keyframes pulse {
@@ -263,7 +263,7 @@ input[type="submit"]:disabled {
 .chooser input[type="radio"]:checked + label {
   color: #111111;
   border-bottom: 2px #111111 solid;
-  background: aquamarine;
+  background: #9013fe;
 }
 
 /* Logo styles from disperse-logo.tag */
@@ -301,11 +301,11 @@ header a {
 }
 
 .active svg path {
-  fill: aquamarine !important;
+  fill: #4D00B4 !important;
 }
 
 .inactive svg path {
-  fill: crimson !important;
+  fill: #009aff !important;
 }
 
 /* Chain Selector Styles */
@@ -319,7 +319,7 @@ header a {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.8rem;
-  background-color: aquamarine;
+  background-color: #9013fe;
   border: 1px solid #111;
   border-radius: 4px;
   font-size: 1rem;
@@ -328,7 +328,7 @@ header a {
 }
 
 .chain-selector-button:hover {
-  background-color: #7fffd4cc;
+  background-color: #f5f5f5;
 }
 
 .chain-selector-dropdown {
@@ -370,7 +370,7 @@ header a {
 }
 
 .chain-selector-option.active {
-  background-color: aquamarine;
+  background-color: #9013fe;
 }
 
 /* Chain selector search input */
@@ -474,4 +474,174 @@ h1 sup .chain-selector-dropdown {
   right: auto;
   z-index: 1000;
   min-width: 250px;
+}
+
+/* QR Scanner Styles */
+.qr-scanner-container {
+  margin-bottom: 1.4rem;
+}
+
+#qr-reader {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto 1rem;
+  border: 2px solid #111111;
+  background: #f5f5f5;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: none;
+  margin: 0;
+}
+
+#qr-reader.scanning {
+  height: auto;
+  min-height: 50px;
+  border: 2px solid #9013fe;
+  background: transparent;
+  margin: 0 auto 1rem;
+}
+
+#qr-reader > div {
+  border: none !important;
+}
+
+.qr-scan-button {
+  border: none;
+  font-style: italic;
+  padding: .7rem;
+  background: #9013fe;
+  box-shadow: 6px 6px #009aff;
+  cursor: pointer;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.qr-scan-button:focus {
+  outline: none;
+}
+
+.qr-scan-button:hover {
+  color: #9013fe;
+  background: #f5f5f5;
+}
+
+.error-message {
+  color: #009aff;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+.success-message {
+  color: #28bd14;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* Scanned Addresses List */
+.scanned-addresses {
+  margin-bottom: 1.4rem;
+}
+
+.scanned-addresses h3 {
+  font-size: 1.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.address-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.address-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem;
+  background: #9013fe;
+  border-bottom: 2px solid #111111;
+  margin-bottom: 0.5rem;
+  font-family: monospace;
+  font-size: 1rem;
+  word-break: break-all;
+}
+
+.address-text {
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.address-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.copy-button,
+.remove-button {
+  border: 1px solid #111111;
+  background: white;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.copy-button:hover {
+  background: #e8e8e8;
+}
+
+.remove-button {
+  background: #009aff;
+  color: white;
+  border-color: #009aff;
+}
+
+.remove-button:hover {
+  background: #dc143ccc;
+}
+
+/* Amount Input */
+.amount-input-container {
+  margin-bottom: 1.4rem;
+}
+
+.amount-input-container h3 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.amount-input {
+  display: block;
+  border: none;
+  border-bottom: 2px #111111 solid;
+  background: #f5f5f5;
+  padding: .7rem;
+  font-size: 1.4rem;
+  width: 100%;
+  margin-bottom: 1.4rem;
+}
+
+.amount-input:focus {
+  outline: none;
+}
+
+/* Footer styles */
+.app-footer {
+  margin-top: 6rem;
+  padding-top: 2rem;
+  border-top: 1px solid #ccc;
+}
+
+.app-footer p {
+  font-size: 1rem;
+  color: #666;
+  text-align: center;
+}
+
+.app-footer a {
+  text-decoration: none;
+  background: none;
+  text-shadow: none;
 }
