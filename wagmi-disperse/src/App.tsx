@@ -6,10 +6,11 @@ import { Suspense, lazy } from "react";
 import CurrencySelector from "./components/CurrencySelector";
 import Header from "./components/Header";
 import NetworkStatus from "./components/NetworkStatus";
+import NetworkSwitcher from "./components/NetworkSwitcher";
 import QRRecipientInput from "./components/QRRecipientInput";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
-import { AppState } from "./constants";
+import { AppState, EXPECTED_CHAIN_ID } from "./constants";
 import { useAppState } from "./hooks/useAppState";
 import { useContractVerification } from "./hooks/useContractVerification";
 import { useCurrencySelection } from "./hooks/useCurrencySelection";
@@ -42,6 +43,9 @@ function App() {
     address,
     chainId: chainId,
   });
+
+  // Log current state for debugging
+  console.log("[App] Connection state:", { chainId, isConnected, address, status });
 
   // Fetch PNK token balance
   const { data: pnkBalanceData } = useBalance({
@@ -146,6 +150,9 @@ function App() {
   const symbol = useMemo(() => getSymbol(sending, token, chainId), [sending, token, chainId]);
   const decimals = useMemo(() => getDecimals(sending, token), [sending, token]);
   const nativeCurrencyName = useMemo(() => getNativeCurrencyName(chainId), [chainId]);
+  
+  // Check if on wrong network
+  const isWrongNetwork = isConnected && chainId !== EXPECTED_CHAIN_ID;
 
   // Display all wallet connectors
   const renderConnectors = () => {
@@ -194,7 +201,11 @@ function App() {
         </section>
       )}
 
-      {appState >= AppState.CONNECTED_TO_WALLET && (
+      {/* Show network switcher PROMINENTLY if connected but on wrong network - AUTO-SWITCHES */}
+      {isConnected && isWrongNetwork && <NetworkSwitcher currentChainId={chainId} />}
+
+      {/* Only show currency selector and beyond if on CORRECT network */}
+      {appState >= AppState.CONNECTED_TO_WALLET && !isWrongNetwork && (
         <section>
           <CurrencySelector onSelect={selectCurrency} />
           {sending === "ether" && (
@@ -206,7 +217,7 @@ function App() {
         </section>
       )}
 
-      {appState >= AppState.SELECTED_CURRENCY && (
+      {appState >= AppState.SELECTED_CURRENCY && !isWrongNetwork && (
         <section>
           <h2>amount to send</h2>
           <p>Enter the amount in {symbol} to send to each address (up to 18 decimals).</p>
@@ -239,9 +250,10 @@ function App() {
           1. Ether is selected and we're connected to a supported wallet/network, or
           2. We're in SELECTED_CURRENCY state or higher (any currency),
           3. Token is selected and we have a valid token (with symbol)
-          BUT never show when on an unsupported network (NETWORK_UNAVAILABLE state)
+          BUT never show when on an unsupported network (NETWORK_UNAVAILABLE state) or WRONG network
       */}
-      {appState !== AppState.NETWORK_UNAVAILABLE &&
+      {!isWrongNetwork &&
+        appState !== AppState.NETWORK_UNAVAILABLE &&
         ((appState >= AppState.CONNECTED_TO_WALLET && sending === "ether") ||
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
@@ -269,6 +281,7 @@ function App() {
           account={address}
           nativeCurrencyName={nativeCurrencyName}
           effectiveAllowance={effectiveAllowance}
+          isWrongNetwork={isWrongNetwork}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { BaseError } from "viem";
-import { useBytecode, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useBytecode, useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { EXPECTED_CHAIN_ID } from "../constants";
 import { disperse_createx } from "../deploy";
 import { createXAbi } from "../generated";
 import { explorerTx, networkName } from "../networks";
@@ -18,6 +19,7 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [deployedAddress, setDeployedAddress] = useState<`0x${string}` | null>(null);
+  const currentChainId = useChainId();
 
   // Use CreateX to deploy the contract - use generic writeContract to set address for any chain
   const { writeContract, isPending, isError, error, data: contractWriteData } = useWriteContract();
@@ -85,6 +87,13 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
   const handleDeploy = async () => {
     setIsDeploying(true);
     setErrorMessage("");
+
+    // CRITICAL: Verify we're on the correct network before deployment
+    if (currentChainId !== EXPECTED_CHAIN_ID) {
+      setErrorMessage(`Wrong network! Please switch to Arbitrum Sepolia (chain ID ${EXPECTED_CHAIN_ID}). Currently on chain ${currentChainId}.`);
+      setIsDeploying(false);
+      return;
+    }
 
     // If contract is already deployed at expected address, just notify success
     if (isAlreadyDeployed) {

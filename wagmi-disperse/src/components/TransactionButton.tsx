@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { BaseError } from "viem";
-import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { EXPECTED_CHAIN_ID } from "../constants";
 import { erc20 } from "../contracts";
 import { disperse_legacy } from "../deploy";
 import { disperseAbi } from "../generated";
@@ -39,6 +40,7 @@ const TransactionButton = ({
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const queryClient = useQueryClient();
+  const currentChainId = useChainId();
 
   // Use the contract address from props, falling back to legacy address if not provided
   const contractAddress = customAddress || (disperse_legacy.address as `0x${string}`);
@@ -113,6 +115,12 @@ const TransactionButton = ({
 
   const handleClick = async () => {
     setErrorMessage("");
+
+    // CRITICAL: Verify we're on the correct network before ANY transaction
+    if (currentChainId !== EXPECTED_CHAIN_ID) {
+      setErrorMessage(`Wrong network! Please switch to Arbitrum Sepolia (chain ID ${EXPECTED_CHAIN_ID}). Currently on chain ${currentChainId}.`);
+      return;
+    }
 
     if (!contractAddress) {
       setErrorMessage("Disperse contract address not available for this network");
