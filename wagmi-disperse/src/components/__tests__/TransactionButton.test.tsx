@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ContractFunctionExecutionError, ContractFunctionRevertedError } from "viem";
+import { ContractFunctionExecutionError, ContractFunctionRevertedError, getAbiItem, toFunctionSelector } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EXPECTED_CHAIN_ID } from "../../constants";
+import { multicall3 } from "../../contracts";
 import { disperseAbi } from "../../generated";
 import TransactionButton from "../TransactionButton";
 
@@ -14,14 +15,17 @@ vi.mock("wagmi", () => ({
   useWriteContract: vi.fn(),
 }));
 
-vi.mock("@tanstack/react-query", () => ({
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
   useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
 }));
 
 vi.spyOn(console, "log").mockImplementation(() => {});
 vi.spyOn(console, "error").mockImplementation(() => {});
 
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { getBalanceQueryKey } from "wagmi/query";
 
 const mockWriteContract = vi.fn();
 const mockSimulateContract = vi.fn();
@@ -70,7 +74,7 @@ describe("TransactionButton", () => {
     } as any);
   });
 
-  it("simulates then sends disperseEther with the summed value", async () => {
+  it("simulates then sends ETH via Multicall3 aggregate3Value with the summed value", async () => {
     mockSimulateContract.mockResolvedValue({ request: {} });
     const user = userEvent.setup();
     render(<TransactionButton {...defaultProps} />);
@@ -78,10 +82,15 @@ describe("TransactionButton", () => {
     await user.click(screen.getByDisplayValue("disperse ETH"));
 
     const expectedParams = {
-      address: contractAddress,
-      abi: disperseAbi,
-      functionName: "disperseEther",
-      args: [recipients.map((r) => r.address), recipients.map((r) => r.value)],
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      abi: multicall3.abi,
+      functionName: "aggregate3Value",
+      args: [
+        [
+          { target: recipients[0].address, allowFailure: false, value: 500000000000000n, callData: "0x" },
+          { target: recipients[1].address, allowFailure: false, value: 250000000000000n, callData: "0x" },
+        ],
+      ],
       value: 750000000000000n,
     };
     await waitFor(() => expect(mockWriteContract).toHaveBeenCalledTimes(1));
@@ -90,6 +99,108 @@ describe("TransactionButton", () => {
     expect(mockSimulateContract.mock.invocationCallOrder[0]).toBeLessThan(
       mockWriteContract.mock.invocationCallOrder[0],
     );
+  });
+
+  it("never sets allowFailure and always sends exactly the sum of values", async () => {
+    mockSimulateContract.mockResolvedValue({ request: {} });
+    const many = Array.from({ length: 7 }, (_, i) => ({
+      address: `0x${(i + 1).toString(16).padStart(40, "0")}` as `0x${string}`,
+      value: BigInt(i + 1) * 123456789n,
+    }));
+    const user = userEvent.setup();
+    render(<TransactionButton {...defaultProps} recipients={many} />);
+
+    await user.click(screen.getByDisplayValue("disperse ETH"));
+
+    await waitFor(() => expect(mockWriteContract).toHaveBeenCalledTimes(1));
+    for (const params of [mockSimulateContract.mock.calls[0][0], mockWriteContract.mock.calls[0][0]]) {
+      const [calls] = params.args as [{ allowFailure: boolean; value: bigint }[]];
+      expect(calls).toHaveLength(many.length);
+      expect(calls.every((c) => c.allowFailure === false)).toBe(true);
+      expect(params.value).toBe(calls.reduce((sum, c) => sum + c.value, 0n));
+      expect(params.value).toBe(many.reduce((sum, r) => sum + r.value, 0n));
+    }
+  });
+
+  it("uses the canonical aggregate3Value selector", () => {
+    const item = getAbiItem({ abi: multicall3.abi, name: "aggregate3Value" });
+    expect(toFunctionSelector(item)).toBe("0x174dea71");
+  });
+
+  it.each([
+    { name: "Disperse not deployed", props: { isContractDeployed: false } },
+    { name: "no Disperse address", props: { contractAddress: undefined } },
+    { name: "bytecode still loading", props: { isBytecodeLoading: true } },
+  ])("disperses ETH via Multicall3 regardless of Disperse state ($name)", async ({ props }) => {
+    mockSimulateContract.mockResolvedValue({ request: {} });
+    const user = userEvent.setup();
+    render(<TransactionButton {...defaultProps} {...props} />);
+
+    const button = screen.getByDisplayValue("disperse ETH");
+    expect(button).not.toBeDisabled();
+    expect(screen.queryByText(/disperse contract/i)).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => expect(mockWriteContract).toHaveBeenCalledTimes(1));
+    expect(mockSimulateContract).toHaveBeenCalledWith(
+      expect.objectContaining({ address: multicall3.address, functionName: "aggregate3Value" }),
+    );
+  });
+
+  it.each([
+    { name: "Disperse not deployed", props: { isContractDeployed: false }, text: "disperse contract not deployed" },
+    {
+      name: "no Disperse address",
+      props: { contractAddress: undefined },
+      text: "disperse contract address not available",
+    },
+  ])("blocks token dispersal when $name", async ({ props, text }) => {
+    const user = userEvent.setup();
+    render(
+      <TransactionButton
+        {...defaultProps}
+        {...props}
+        title="disperse token"
+        action="disperseToken"
+        token={{ address: "0x3333333333333333333333333333333333333333" }}
+      />,
+    );
+
+    const button = screen.getByDisplayValue("disperse token");
+    expect(button).toBeDisabled();
+    expect(screen.getByText(text)).toHaveClass("failed");
+
+    await user.click(button);
+
+    expect(mockSimulateContract).not.toHaveBeenCalled();
+    expect(mockWriteContract).not.toHaveBeenCalled();
+  });
+
+  it("keeps dispersing tokens through the Disperse contract", async () => {
+    mockSimulateContract.mockResolvedValue({ request: {} });
+    const tokenAddress = "0x3333333333333333333333333333333333333333" as const;
+    const user = userEvent.setup();
+    render(
+      <TransactionButton
+        {...defaultProps}
+        title="disperse token"
+        action="disperseToken"
+        token={{ address: tokenAddress }}
+      />,
+    );
+
+    await user.click(screen.getByDisplayValue("disperse token"));
+
+    const expectedParams = {
+      address: contractAddress,
+      abi: disperseAbi,
+      functionName: "disperseToken",
+      args: [tokenAddress, recipients.map((r) => r.address), recipients.map((r) => r.value)],
+    };
+    await waitFor(() => expect(mockWriteContract).toHaveBeenCalledTimes(1));
+    expect(mockSimulateContract).toHaveBeenCalledWith({ ...expectedParams, account });
+    expect(mockWriteContract).toHaveBeenCalledWith(expectedParams, expect.any(Object));
   });
 
   it("builds approve params for the token", async () => {
@@ -113,22 +224,31 @@ describe("TransactionButton", () => {
 
   it("does not send and shows the revert when simulation fails", async () => {
     mockSimulateContract.mockRejectedValue(
-      revertError("disperseEther", [recipients.map((r) => r.address), recipients.map((r) => r.value)]),
+      new ContractFunctionExecutionError(
+        new ContractFunctionRevertedError({ abi: multicall3.abi, functionName: "aggregate3Value" }),
+        {
+          abi: multicall3.abi,
+          functionName: "aggregate3Value",
+          args: [[]],
+          contractAddress: multicall3.address,
+          sender: account,
+        },
+      ),
     );
     const user = userEvent.setup();
     render(<TransactionButton {...defaultProps} />);
 
     await user.click(screen.getByDisplayValue("disperse ETH"));
 
-    expect(
-      await screen.findByText(
-        'transaction would revert: The contract function "disperseEther" reverted. — a recipient may be a contract wallet that can\'t receive ETH via Disperse',
-      ),
-    ).toHaveClass("failed");
+    const error = await screen.findByText(
+      'transaction would revert: The contract function "aggregate3Value" reverted.',
+    );
+    expect(error).toHaveClass("failed");
+    expect(error.textContent).not.toMatch(/contract wallet/);
     expect(mockWriteContract).not.toHaveBeenCalled();
   });
 
-  it("omits the contract-wallet hint for non-ether actions", async () => {
+  it("shows the plain revert message for token actions", async () => {
     mockSimulateContract.mockRejectedValue(
       revertError("disperseToken", [
         "0x3333333333333333333333333333333333333333",
@@ -176,5 +296,27 @@ describe("TransactionButton", () => {
     await waitFor(() => expect(button).not.toBeDisabled());
     expect(screen.queryByText("simulating transaction...")).not.toBeInTheDocument();
     expect(mockWriteContract).toHaveBeenCalledTimes(1);
+  });
+  it("refreshes the useBalance({ token }) balance after a confirmed disperseToken", () => {
+    const tokenAddress = "0x3333333333333333333333333333333333333333" as const;
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      getBalanceQueryKey({ address: account, token: tokenAddress, chainId: EXPECTED_CHAIN_ID }),
+      { value: 1n },
+    );
+    vi.mocked(useQueryClient).mockReturnValue(queryClient);
+    vi.mocked(useWaitForTransactionReceipt).mockReturnValue({ isLoading: false, isSuccess: true } as any);
+    render(
+      <TransactionButton
+        {...defaultProps}
+        title="disperse token"
+        action="disperseToken"
+        token={{ address: tokenAddress }}
+      />,
+    );
+
+    // Same key App's useBalance({ address, token, chainId }) caches under
+    const tokenBalanceKey = getBalanceQueryKey({ address: account, token: tokenAddress, chainId: EXPECTED_CHAIN_ID });
+    expect(queryClient.getQueryState(tokenBalanceKey)?.isInvalidated).toBe(true);
   });
 });

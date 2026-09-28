@@ -56,7 +56,7 @@ export default function TransactionSection({
         {sending === "ether" && (
           <TransactionButton
             show={true}
-            disabled={leftAmount < 0n || isWrongNetwork}
+            disabled={leftAmount < 0n || isWrongNetwork || recipients.length === 0 || totalAmount === 0n}
             title={`disperse ${nativeCurrencyName}`}
             action="disperseEther"
             message={isWrongNetwork ? "Wrong network - please switch to Arbitrum Sepolia" : disperseMessage}
@@ -94,7 +94,13 @@ export default function TransactionSection({
           />
           <TransactionButton
             show={true}
-            disabled={leftAmount < 0n || effectiveAllowance < totalAmount || isWrongNetwork}
+            disabled={
+              leftAmount < 0n ||
+              effectiveAllowance < totalAmount ||
+              isWrongNetwork ||
+              recipients.length === 0 ||
+              totalAmount === 0n
+            }
             title="disperse token"
             action="disperseToken"
             message={isWrongNetwork ? "Wrong network - please switch to Arbitrum Sepolia" : disperseMessage}

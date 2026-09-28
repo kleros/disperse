@@ -84,3 +84,5 @@ The contract provides functions to:
 - `disperseEther`: Distribute native currency (ETH, etc.)
 - `disperseToken`: Distribute ERC20 tokens efficiently
 - `disperseTokenSimple`: Alternative method for token distribution
+
+**On this fork**, native ETH is dispersed via [Multicall3](https://github.com/mds1/multicall3) `aggregate3Value` (`0xcA11bde05977b3631167028862bE2a173976CA11`) instead of `disperseEther`. It forwards all gas with `call{value}`, so smart contract wallets such as Safes can receive (`disperseEther` uses `transfer()`, whose 2300-gas stipend makes them revert). Every call sets `allowFailure: false` and `msg.value` equals the exact total. Tokens still go through `Disperse.disperseToken`: the app never approves Multicall3, because anyone could drain that allowance.
