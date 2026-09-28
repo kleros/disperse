@@ -38,6 +38,9 @@ const PNK_TOKEN = {
   decimals: 18,
 };
 
+// Prefilled amount per recipient when sending ETH
+const DEFAULT_ETHER_AMOUNT = "0.0005";
+
 function App() {
   const config = useConfig();
   const chainId = useChainId();
@@ -114,8 +117,11 @@ function App() {
       setSending(type);
 
       if (type === "ether") {
+        setAmount((current) => current || DEFAULT_ETHER_AMOUNT);
         setAppState(AppState.SELECTED_CURRENCY);
       } else if (type === "token") {
+        // The ETH default makes no sense as a PNK amount; keep anything the user typed
+        setAmount((current) => (current === DEFAULT_ETHER_AMOUNT ? "" : current));
         // Auto-populate PNK token
         setToken(PNK_TOKEN);
         setAppState(AppState.SELECTED_CURRENCY);
