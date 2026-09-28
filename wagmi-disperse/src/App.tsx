@@ -261,7 +261,7 @@ function App() {
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
           <>
-            <RecentUsersInput onAddressesAdd={addAddresses} />
+            <RecentUsersInput existingAddresses={recipientAddresses} onAddressesAdd={addAddresses} />
             <QRRecipientInput onAddressesAdd={addAddresses} />
             <RecipientList
               sending={sending}
