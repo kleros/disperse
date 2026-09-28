@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import type { BaseError } from "viem";
-import { useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { type BaseError, ContractFunctionRevertedError } from "viem";
+import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { EXPECTED_CHAIN_ID } from "../constants";
 import { erc20 } from "../contracts";
 import { disperseAbi } from "../generated";
@@ -25,6 +25,63 @@ interface TransactionButtonProps {
   account?: `0x${string}`; // User account for query invalidation
 }
 
+const MAX_UINT256 = 2n ** 256n - 1n;
+
+type TransactionAction = TransactionButtonProps["action"];
+
+// Build the contract call for an action; null when the action needs a token address that is missing.
+function buildWriteParams(
+  action: TransactionAction,
+  contractAddress: `0x${string}`,
+  recipients: Recipient[],
+  tokenAddress: `0x${string}` | undefined,
+) {
+  const addresses = recipients.map((r) => r.address);
+  const values = recipients.map((r) => r.value);
+  if (action === "disperseEther") {
+    return {
+      address: contractAddress,
+      abi: disperseAbi,
+      functionName: "disperseEther",
+      args: [addresses, values],
+      value: values.reduce((sum, v) => sum + v, 0n),
+    } as const;
+  }
+  if (!tokenAddress) return null;
+  if (action === "disperseToken") {
+    return {
+      address: contractAddress,
+      abi: disperseAbi,
+      functionName: "disperseToken",
+      args: [tokenAddress, addresses, values],
+    } as const;
+  }
+  return {
+    address: tokenAddress,
+    abi: erc20.abi,
+    functionName: "approve",
+    args: [contractAddress, action === "approve" ? MAX_UINT256 : 0n],
+  } as const;
+}
+
+// Turn a simulation failure into a concise, user-facing message.
+function formatSimulationError(error: unknown, action: TransactionAction): string {
+  const reverted =
+    error && typeof (error as BaseError).walk === "function"
+      ? (error as BaseError).walk((e) => e instanceof ContractFunctionRevertedError)
+      : null;
+  const hasDecodedReason =
+    reverted instanceof ContractFunctionRevertedError &&
+    Boolean((reverted.reason && reverted.reason !== "execution reverted") || reverted.data);
+  let message = `transaction would revert: ${formatError(error)
+    .replace(/\s*\n\s*/g, " ")
+    .trim()}`;
+  if (action === "disperseEther" && !hasDecodedReason) {
+    message += " — a recipient may be a contract wallet that can't receive ETH via Disperse";
+  }
+  return message;
+}
+
 const TransactionButton = ({
   show = true,
   disabled = false,
@@ -44,6 +101,9 @@ const TransactionButton = ({
   const [errorMessage, setErrorMessage] = useState("");
   const queryClient = useQueryClient();
   const currentChainId = useChainId();
+  const publicClient = usePublicClient();
+  const { address: connectedAddress } = useAccount();
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Use the contract address from props only; do not fall back to legacy implicitly.
   const contractAddress = customAddress;
@@ -120,7 +180,9 @@ const TransactionButton = ({
 
     // CRITICAL: Verify we're on the correct network before ANY transaction
     if (currentChainId !== EXPECTED_CHAIN_ID) {
-      setErrorMessage(`Wrong network! Please switch to Arbitrum Sepolia (chain ID ${EXPECTED_CHAIN_ID}). Currently on chain ${currentChainId}.`);
+      setErrorMessage(
+        `Wrong network! Please switch to Arbitrum Sepolia (chain ID ${EXPECTED_CHAIN_ID}). Currently on chain ${currentChainId}.`,
+      );
       return;
     }
 
@@ -139,80 +201,41 @@ const TransactionButton = ({
       return;
     }
 
+    const params = buildWriteParams(action, contractAddress, recipients, token.address);
+    if (!params) {
+      setErrorMessage("Token address not available");
+      return;
+    }
+
+    const sender = account ?? connectedAddress;
+    if (!publicClient || !sender) {
+      setErrorMessage("Wallet not connected");
+      return;
+    }
+
+    // Simulate first so reverts surface here instead of on-chain
+    setIsSimulating(true);
     try {
-      if (action === "disperseEther") {
-        writeContract(
-          {
-            address: contractAddress,
-            abi: disperseAbi,
-            functionName: "disperseEther",
-            args: [recipients.map((r) => r.address), recipients.map((r) => r.value)],
-            value: recipients.reduce((sum, r: Recipient) => BigInt(sum) + r.value, BigInt(0)),
-          },
-          {
-            onSuccess(hash) {
-              setTxHash(hash);
-            },
-            onError(error) {
-              setErrorMessage(formatError(error));
-            },
-          },
-        );
-      } else if (action === "disperseToken" && token.address) {
-        writeContract(
-          {
-            address: contractAddress,
-            abi: disperseAbi,
-            functionName: "disperseToken",
-            args: [token.address, recipients.map((r) => r.address), recipients.map((r) => r.value)],
-          },
-          {
-            onSuccess(hash) {
-              setTxHash(hash);
-            },
-            onError(error) {
-              setErrorMessage(formatError(error));
-            },
-          },
-        );
-      } else if (action === "approve" && token.address) {
-        writeContract(
-          {
-            address: token.address,
-            abi: erc20.abi,
-            functionName: "approve",
-            args: [
-              contractAddress,
-              BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), // MaxUint256
-            ],
-          },
-          {
-            onSuccess(hash) {
-              setTxHash(hash);
-            },
-            onError(error) {
-              setErrorMessage(formatError(error));
-            },
-          },
-        );
-      } else if (action === "deny" && token.address) {
-        writeContract(
-          {
-            address: token.address,
-            abi: erc20.abi,
-            functionName: "approve",
-            args: [contractAddress, 0n],
-          },
-          {
-            onSuccess(hash) {
-              setTxHash(hash);
-            },
-            onError(error) {
-              setErrorMessage(formatError(error));
-            },
-          },
-        );
-      }
+      await publicClient.simulateContract({ ...params, account: sender } as Parameters<
+        typeof publicClient.simulateContract
+      >[0]);
+    } catch (error: unknown) {
+      console.error("Transaction simulation failed:", error);
+      setErrorMessage(formatSimulationError(error, action));
+      return;
+    } finally {
+      setIsSimulating(false);
+    }
+
+    try {
+      writeContract(params as Parameters<typeof writeContract>[0], {
+        onSuccess(hash) {
+          setTxHash(hash);
+        },
+        onError(error) {
+          setErrorMessage(formatError(error));
+        },
+      });
     } catch (error: unknown) {
       console.error("Transaction error:", error);
       setErrorMessage((error as BaseError)?.shortMessage || (error as Error)?.message || "Transaction failed");
@@ -230,7 +253,13 @@ const TransactionButton = ({
         value={title}
         onClick={handleClick}
         disabled={
-          disabled || isWritePending || isConfirming || isBytecodeLoading || !isContractDeployed || !contractAddress
+          disabled ||
+          isSimulating ||
+          isWritePending ||
+          isConfirming ||
+          isBytecodeLoading ||
+          !isContractDeployed ||
+          !contractAddress
         }
       />
       <div className="status">
@@ -242,6 +271,7 @@ const TransactionButton = ({
         {contractAddress && !isBytecodeLoading && !isContractDeployed && !errorMessage && (
           <div className="failed">disperse contract not deployed</div>
         )}
+        {isSimulating && <div className="pending">simulating transaction...</div>}
         {isWritePending && <div className="pending">sign transaction with wallet</div>}
         {isConfirming && <div className="pending">transaction pending</div>}
         {isConfirmed && <div className="success">transaction success</div>}
