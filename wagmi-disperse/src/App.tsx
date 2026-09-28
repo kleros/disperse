@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useBalance, useChainId, useConfig, useConnect } from "wagmi";
 
@@ -6,16 +6,19 @@ import { Suspense, lazy } from "react";
 import CurrencySelector from "./components/CurrencySelector";
 import Header from "./components/Header";
 import NetworkStatus from "./components/NetworkStatus";
-import RecipientInput from "./components/RecipientInput";
-import TokenLoader from "./components/TokenLoader";
+import NetworkSwitcher from "./components/NetworkSwitcher";
+import QRRecipientInput from "./components/QRRecipientInput";
+import RecentUsersInput from "./components/RecentUsersInput";
+import RecipientList from "./components/RecipientList";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
-import { AppState } from "./constants";
+import { AppState, EXPECTED_CHAIN_ID } from "./constants";
 import { useAppState } from "./hooks/useAppState";
 import { useContractVerification } from "./hooks/useContractVerification";
 import { useCurrencySelection } from "./hooks/useCurrencySelection";
+import { useRecipientAddresses } from "./hooks/useRecipientAddresses";
 import { useTokenAllowance } from "./hooks/useTokenAllowance";
-import type { Recipient, TokenInfo } from "./types";
+import type { Recipient } from "./types";
 import {
   getBalance,
   getDecimals,
@@ -26,7 +29,17 @@ import {
   getTotalAmount,
 } from "./utils/balanceCalculations";
 import { canDeployToNetwork } from "./utils/contractVerify";
-import { parseRecipients } from "./utils/parseRecipients";
+
+// PNK token constant for Arbitrum Sepolia
+const PNK_TOKEN = {
+  address: "0x34B944D42cAcfC8266955D07A80181D2054aa225" as `0x${string}`,
+  symbol: "PNK",
+  name: "Kleros",
+  decimals: 18,
+};
+
+// Prefilled amount per recipient when sending ETH
+const DEFAULT_ETHER_AMOUNT = "0.0005";
 
 function App() {
   const config = useConfig();
@@ -36,6 +49,17 @@ function App() {
     address,
     chainId: chainId,
   });
+
+  // Log current state for debugging
+  console.log("[App] Connection state:", { chainId, isConnected, address, status });
+
+  // Fetch PNK token balance
+  const { data: pnkBalanceData } = useBalance({
+    address,
+    token: PNK_TOKEN.address,
+    chainId: chainId,
+  });
+
   const { connectors, connect } = useConnect();
 
   const isChainSupported = chainId ? config.chains.some((chain) => chain.id === chainId) : false;
@@ -57,8 +81,10 @@ function App() {
   }, []);
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  // Ether is the initial currency (useCurrencySelection), which bypasses selectCurrency
+  const [amount, setAmount] = useState<string>(DEFAULT_ETHER_AMOUNT);
+  const { addresses: recipientAddresses, addAddresses, removeAddress } = useRecipientAddresses();
   const walletStatus = status === "connected" ? `logged in as ${address}` : "please unlock wallet";
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { sending, token, setSending, setToken } = useCurrencySelection();
 
@@ -72,23 +98,6 @@ function App() {
     sending,
     token,
   });
-
-  const parseAmounts = useCallback(() => {
-    if (!textareaRef.current) return;
-
-    const text = textareaRef.current.value;
-    const decimals = getDecimals(sending, token);
-    const newRecipients = parseRecipients(text, decimals);
-
-    setRecipients(newRecipients);
-
-    if (
-      newRecipients.length &&
-      (sending === "ether" || (sending === "token" && token.address && token.decimals !== undefined))
-    ) {
-      setAppState(AppState.ENTERED_AMOUNTS);
-    }
-  }, [sending, token, setAppState]);
 
   const handleRecipientsChange = useCallback(
     (newRecipients: Recipient[]) => {
@@ -104,57 +113,27 @@ function App() {
     [sending, token, setAppState],
   );
 
-  const resetToken = useCallback(() => {
-    setToken({});
-    setAppState(AppState.CONNECTED_TO_WALLET);
-  }, [setToken, setAppState]);
-
   const selectCurrency = useCallback(
     (type: "ether" | "token") => {
       setSending(type);
 
       if (type === "ether") {
+        setAmount((current) => current || DEFAULT_ETHER_AMOUNT);
         setAppState(AppState.SELECTED_CURRENCY);
-        requestAnimationFrame(() => {
-          if (textareaRef.current?.value) {
-            parseAmounts();
-          }
-        });
       } else if (type === "token") {
-        if (token.address && token.decimals !== undefined && token.symbol) {
-          setAppState(AppState.SELECTED_CURRENCY);
-          requestAnimationFrame(() => {
-            if (textareaRef.current?.value) {
-              parseAmounts();
-            }
-          });
-        } else {
-          resetToken();
-        }
+        // The ETH default makes no sense as a PNK amount; keep anything the user typed
+        setAmount((current) => (current === DEFAULT_ETHER_AMOUNT ? "" : current));
+        // Auto-populate PNK token
+        setToken(PNK_TOKEN);
+        setAppState(AppState.SELECTED_CURRENCY);
       }
     },
-    [setSending, setAppState, token, parseAmounts, resetToken],
+    [setSending, setAppState, setToken],
   );
 
-  const selectToken = useCallback(
-    (tokenInfo: TokenInfo) => {
-      setToken(tokenInfo);
-      setSending("token");
-      setAppState(AppState.SELECTED_CURRENCY);
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            if (tokenInfo.decimals !== undefined) {
-              parseAmounts();
-            }
-          }
-        });
-      });
-    },
-    [setToken, setSending, setAppState, parseAmounts],
-  );
+  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmount(e.target.value);
+  }, []);
 
   // Use reactive allowance hook
   const { allowance: currentAllowance } = useTokenAllowance({
@@ -167,20 +146,34 @@ function App() {
   // Use the reactive allowance if available, otherwise fall back to the stored token allowance
   const effectiveAllowance = currentAllowance ?? token.allowance ?? 0n;
 
+  // The selected token state carries no balance; attach the live PNK balance for the balance helpers.
+  // Kept separate from `token` so its identity (a dependency of RecipientList/useTokenAllowance) stays stable.
+  const pnkBalance = pnkBalanceData?.value;
+  const tokenWithBalance = useMemo(
+    () => (token.address === PNK_TOKEN.address ? { ...token, balance: pnkBalance } : token),
+    [token, pnkBalance],
+  );
+
   // Memoize expensive calculations
   const totalAmount = useMemo(() => getTotalAmount(recipients), [recipients]);
-  const balance = useMemo(() => getBalance(sending, token, balanceData), [sending, token, balanceData]);
+  const balance = useMemo(
+    () => getBalance(sending, tokenWithBalance, balanceData),
+    [sending, tokenWithBalance, balanceData],
+  );
   const leftAmount = useMemo(
-    () => getLeftAmount(recipients, sending, token, balanceData),
-    [recipients, sending, token, balanceData],
+    () => getLeftAmount(recipients, sending, tokenWithBalance, balanceData),
+    [recipients, sending, tokenWithBalance, balanceData],
   );
   const disperseMessage = useMemo(
-    () => getDisperseMessage(recipients, sending, { ...token, allowance: effectiveAllowance }, balanceData),
-    [recipients, sending, token, effectiveAllowance, balanceData],
+    () => getDisperseMessage(recipients, sending, { ...tokenWithBalance, allowance: effectiveAllowance }, balanceData),
+    [recipients, sending, tokenWithBalance, effectiveAllowance, balanceData],
   );
   const symbol = useMemo(() => getSymbol(sending, token, chainId), [sending, token, chainId]);
   const decimals = useMemo(() => getDecimals(sending, token), [sending, token]);
   const nativeCurrencyName = useMemo(() => getNativeCurrencyName(chainId), [chainId]);
+  
+  // Check if on wrong network
+  const isWrongNetwork = isConnected && chainId !== EXPECTED_CHAIN_ID;
 
   // Display all wallet connectors
   const renderConnectors = () => {
@@ -229,7 +222,11 @@ function App() {
         </section>
       )}
 
-      {appState >= AppState.CONNECTED_TO_WALLET && (
+      {/* Show network switcher PROMINENTLY if connected but on wrong network - AUTO-SWITCHES */}
+      {isConnected && isWrongNetwork && <NetworkSwitcher currentChainId={chainId} />}
+
+      {/* Only show currency selector and beyond if on CORRECT network */}
+      {appState >= AppState.CONNECTED_TO_WALLET && !isWrongNetwork && (
         <section>
           <CurrencySelector onSelect={selectCurrency} />
           {sending === "ether" && (
@@ -241,19 +238,30 @@ function App() {
         </section>
       )}
 
-      {appState >= AppState.CONNECTED_TO_WALLET && sending === "token" && (
+      {appState >= AppState.SELECTED_CURRENCY && !isWrongNetwork && (
         <section>
-          <TokenLoader
-            onSelect={selectToken}
-            onError={resetToken}
-            chainId={chainId}
-            account={address}
-            token={token}
-            contractAddress={verifiedAddress?.address}
-          />
-          {token.symbol && (
+          <h2>amount to send</h2>
+          <p>Enter the amount in {symbol} to send to each address (up to 18 decimals).</p>
+          <div className="shadow">
+            <input
+              type="text"
+              value={amount}
+              onChange={handleAmountChange}
+              placeholder={`0.0 ${symbol}`}
+              className="amount-input"
+              pattern="[0-9]*\.?[0-9]*"
+            />
+          </div>
+          {sending === "ether" && (
             <p className="mt">
-              you have {formatUnits(token.balance || 0n, token.decimals || 18)} {token.symbol}
+              you have {formatUnits(balanceData?.value || 0n, 18)} {nativeCurrencyName}
+              {balanceData?.value === 0n && chainId && <span className="warning">(make sure to add funds)</span>}
+            </p>
+          )}
+          {sending === "token" && token.symbol && (
+            <p className="mt">
+              you have {formatUnits(pnkBalanceData?.value || 0n, token.decimals || 18)} {token.symbol}
+              {pnkBalanceData?.value === 0n && chainId && <span className="warning">(make sure to add funds)</span>}
             </p>
           )}
         </section>
@@ -263,18 +271,25 @@ function App() {
           1. Ether is selected and we're connected to a supported wallet/network, or
           2. We're in SELECTED_CURRENCY state or higher (any currency),
           3. Token is selected and we have a valid token (with symbol)
-          BUT never show when on an unsupported network (NETWORK_UNAVAILABLE state)
+          BUT never show when on an unsupported network (NETWORK_UNAVAILABLE state) or WRONG network
       */}
-      {appState !== AppState.NETWORK_UNAVAILABLE &&
+      {!isWrongNetwork &&
+        appState !== AppState.NETWORK_UNAVAILABLE &&
         ((appState >= AppState.CONNECTED_TO_WALLET && sending === "ether") ||
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
-          <RecipientInput
-            sending={sending}
-            token={token}
-            onRecipientsChange={handleRecipientsChange}
-            textareaRef={textareaRef}
-          />
+          <>
+            <RecentUsersInput existingAddresses={recipientAddresses} onAddressesAdd={addAddresses} />
+            <QRRecipientInput onAddressesAdd={addAddresses} />
+            <RecipientList
+              sending={sending}
+              token={token}
+              amount={amount}
+              addresses={recipientAddresses}
+              onAddressRemove={removeAddress}
+              onRecipientsChange={handleRecipientsChange}
+            />
+          </>
         )}
 
       {appState >= AppState.ENTERED_AMOUNTS && (
@@ -295,6 +310,7 @@ function App() {
           account={address}
           nativeCurrencyName={nativeCurrencyName}
           effectiveAllowance={effectiveAllowance}
+          isWrongNetwork={isWrongNetwork}
         />
       )}
 
@@ -318,6 +334,19 @@ function App() {
           recipientsCount={recipients.length}
         />
       </Suspense>
+
+      <footer className="app-footer">
+        <p>
+          Built on{" "}
+          <a href="https://disperse.app" target="_blank" rel="noopener noreferrer">
+            disperse.app
+          </a>
+          {" "}by{" "}
+          <a href="https://x.com/bantg" target="_blank" rel="noopener noreferrer">
+            banteg
+          </a>
+        </p>
+      </footer>
     </article>
   );
 }

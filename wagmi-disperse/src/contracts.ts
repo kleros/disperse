@@ -170,3 +170,44 @@ export const ds_token = {
     },
   ] as const,
 };
+
+// Multicall3 (https://github.com/mds1/multicall3), same address on every chain incl. Arbitrum Sepolia.
+// Used ONLY to disperse native ETH: aggregate3Value forwards all gas via call{value}, so smart
+// contract wallets (e.g. Safes) can receive, unlike Disperse.disperseEther's 2300-gas transfer().
+// Safety invariants for every aggregate3Value call:
+// - allowFailure MUST be false for every entry: a failed entry with allowFailure=true leaves its
+//   ETH stranded in Multicall3, where anyone can sweep it.
+// - msg.value MUST equal the exact sum of entry values (Multicall3 reverts with "value mismatch").
+// NEVER route ERC20 transfers through Multicall3: approving it lets anyone drain the allowance.
+export const multicall3 = {
+  address: "0xcA11bde05977b3631167028862bE2a173976CA11" as const,
+  abi: [
+    {
+      name: "aggregate3Value",
+      type: "function",
+      stateMutability: "payable",
+      inputs: [
+        {
+          name: "calls",
+          type: "tuple[]",
+          components: [
+            { name: "target", type: "address" },
+            { name: "allowFailure", type: "bool" },
+            { name: "value", type: "uint256" },
+            { name: "callData", type: "bytes" },
+          ],
+        },
+      ],
+      outputs: [
+        {
+          name: "returnData",
+          type: "tuple[]",
+          components: [
+            { name: "success", type: "bool" },
+            { name: "returnData", type: "bytes" },
+          ],
+        },
+      ],
+    },
+  ] as const,
+};

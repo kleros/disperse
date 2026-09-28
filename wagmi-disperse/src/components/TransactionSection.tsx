@@ -19,6 +19,7 @@ interface TransactionSectionProps {
   account?: `0x${string}`;
   nativeCurrencyName?: string;
   effectiveAllowance?: bigint;
+  isWrongNetwork?: boolean;
 }
 
 export default function TransactionSection({
@@ -38,6 +39,7 @@ export default function TransactionSection({
   account,
   nativeCurrencyName = "ETH",
   effectiveAllowance = 0n,
+  isWrongNetwork = false,
 }: TransactionSectionProps) {
   return (
     <>
@@ -54,10 +56,10 @@ export default function TransactionSection({
         {sending === "ether" && (
           <TransactionButton
             show={true}
-            disabled={leftAmount < 0n}
+            disabled={leftAmount < 0n || isWrongNetwork || recipients.length === 0 || totalAmount === 0n}
             title={`disperse ${nativeCurrencyName}`}
             action="disperseEther"
-            message={disperseMessage}
+            message={isWrongNetwork ? "Wrong network - please switch to Arbitrum Sepolia" : disperseMessage}
             chainId={chainId}
             recipients={recipients}
             token={token}
@@ -88,13 +90,20 @@ export default function TransactionSection({
             isBytecodeLoading={isBytecodeLoading}
             className={effectiveAllowance >= totalAmount ? "secondary" : ""}
             account={account}
+            disabled={isWrongNetwork}
           />
           <TransactionButton
             show={true}
-            disabled={leftAmount < 0n || effectiveAllowance < totalAmount}
+            disabled={
+              leftAmount < 0n ||
+              effectiveAllowance < totalAmount ||
+              isWrongNetwork ||
+              recipients.length === 0 ||
+              totalAmount === 0n
+            }
             title="disperse token"
             action="disperseToken"
-            message={disperseMessage}
+            message={isWrongNetwork ? "Wrong network - please switch to Arbitrum Sepolia" : disperseMessage}
             chainId={chainId}
             recipients={recipients}
             token={token}
