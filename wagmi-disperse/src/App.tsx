@@ -32,7 +32,7 @@ import { canDeployToNetwork } from "./utils/contractVerify";
 
 // PNK token constant for Arbitrum Sepolia
 const PNK_TOKEN = {
-  address: "0xA13c3e5f8F19571859F4Ab1003B960a5DF694C10" as `0x${string}`,
+  address: "0x34B944D42cAcfC8266955D07A80181D2054aa225" as `0x${string}`,
   symbol: "PNK",
   name: "Kleros",
   decimals: 18,
