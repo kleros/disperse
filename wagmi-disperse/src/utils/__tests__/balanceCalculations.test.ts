@@ -86,6 +86,33 @@ describe("getLeftAmount", () => {
   });
 });
 
+describe("token balance wiring (PNK regression)", () => {
+  // Selected token state has no `balance`; App attaches the useBalance({ token }) value before calling the helpers
+  const pnk: TokenInfo = { address: "0x34B944D42cAcfC8266955D07A80181D2054aa225", symbol: "PNK", decimals: 18 };
+  const pnkBalance = 45681374720000000000000000n;
+  const recipients: Recipient[] = [
+    { address: "0xd37888f19e669874cfccf519bf267280d70498c7", value: 10n ** 18n },
+    { address: "0x70f11443f009f374ebae23ce4f8029774c30f0e9", value: 10n ** 18n },
+  ];
+  const ethBalance = { value: 10n ** 16n };
+
+  it("reports a zero balance and 'total exceeds balance' when the token balance is missing", () => {
+    expect(getLeftAmount(recipients, "token", pnk, ethBalance)).toBe(-2n * 10n ** 18n);
+    expect(getDisperseMessage(recipients, "token", { ...pnk, allowance: pnkBalance }, ethBalance)).toBe(
+      "total exceeds balance",
+    );
+  });
+
+  it("uses the attached token balance for leftAmount and allows dispersing", () => {
+    const token = { ...pnk, balance: pnkBalance };
+    expect(getBalance("token", token, ethBalance)).toBe(pnkBalance);
+    expect(getLeftAmount(recipients, "token", token, ethBalance)).toBe(pnkBalance - 2n * 10n ** 18n);
+    expect(
+      getDisperseMessage(recipients, "token", { ...token, allowance: 2n * 10n ** 18n }, ethBalance),
+    ).toBeUndefined();
+  });
+});
+
 describe("getDisperseMessage", () => {
   const recipients: Recipient[] = [{ address: "0x1234567890123456789012345678901234567890", value: 3000n }];
 

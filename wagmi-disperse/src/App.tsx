@@ -146,16 +146,27 @@ function App() {
   // Use the reactive allowance if available, otherwise fall back to the stored token allowance
   const effectiveAllowance = currentAllowance ?? token.allowance ?? 0n;
 
+  // The selected token state carries no balance; attach the live PNK balance for the balance helpers.
+  // Kept separate from `token` so its identity (a dependency of RecipientList/useTokenAllowance) stays stable.
+  const pnkBalance = pnkBalanceData?.value;
+  const tokenWithBalance = useMemo(
+    () => (token.address === PNK_TOKEN.address ? { ...token, balance: pnkBalance } : token),
+    [token, pnkBalance],
+  );
+
   // Memoize expensive calculations
   const totalAmount = useMemo(() => getTotalAmount(recipients), [recipients]);
-  const balance = useMemo(() => getBalance(sending, token, balanceData), [sending, token, balanceData]);
+  const balance = useMemo(
+    () => getBalance(sending, tokenWithBalance, balanceData),
+    [sending, tokenWithBalance, balanceData],
+  );
   const leftAmount = useMemo(
-    () => getLeftAmount(recipients, sending, token, balanceData),
-    [recipients, sending, token, balanceData],
+    () => getLeftAmount(recipients, sending, tokenWithBalance, balanceData),
+    [recipients, sending, tokenWithBalance, balanceData],
   );
   const disperseMessage = useMemo(
-    () => getDisperseMessage(recipients, sending, { ...token, allowance: effectiveAllowance }, balanceData),
-    [recipients, sending, token, effectiveAllowance, balanceData],
+    () => getDisperseMessage(recipients, sending, { ...tokenWithBalance, allowance: effectiveAllowance }, balanceData),
+    [recipients, sending, tokenWithBalance, effectiveAllowance, balanceData],
   );
   const symbol = useMemo(() => getSymbol(sending, token, chainId), [sending, token, chainId]);
   const decimals = useMemo(() => getDecimals(sending, token), [sending, token]);
