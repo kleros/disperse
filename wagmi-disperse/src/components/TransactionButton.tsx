@@ -4,7 +4,6 @@ import type { BaseError } from "viem";
 import { useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { EXPECTED_CHAIN_ID } from "../constants";
 import { erc20 } from "../contracts";
-import { disperse_legacy } from "../deploy";
 import { disperseAbi } from "../generated";
 import { explorerTx } from "../networks";
 import type { Recipient, TokenInfo } from "../types";
@@ -20,6 +19,8 @@ interface TransactionButtonProps {
   recipients: Recipient[];
   token: TokenInfo;
   contractAddress?: `0x${string}`; // Optional contract address override
+  isContractDeployed: boolean;
+  isBytecodeLoading: boolean;
   className?: string; // Additional class names for styling
   account?: `0x${string}`; // User account for query invalidation
 }
@@ -34,6 +35,8 @@ const TransactionButton = ({
   recipients,
   token,
   contractAddress: customAddress,
+  isContractDeployed,
+  isBytecodeLoading,
   className = "",
   account,
 }: TransactionButtonProps) => {
@@ -42,19 +45,17 @@ const TransactionButton = ({
   const queryClient = useQueryClient();
   const currentChainId = useChainId();
 
-  // Use the contract address from props, falling back to legacy address if not provided
-  const contractAddress = customAddress || (disperse_legacy.address as `0x${string}`);
-
-  // Always consider the contract deployed if we're showing the button
-  // The parent component (App.tsx) only shows this button when a contract is verified
-  const isContractDeployed = true;
-  const isBytecodeLoading = false;
+  // Use the contract address from props only; do not fall back to legacy implicitly.
+  const contractAddress = customAddress;
 
   // Use generic writeContract for all operations so we can explicitly set the chainId and address
   const { writeContract, isPending: isWritePending, isError: isWriteError, error: writeError } = useWriteContract();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash: txHash as `0x${string}` | undefined,
+    hash: txHash ?? undefined,
+    query: {
+      enabled: !!txHash,
+    },
   });
 
   // Update error message when write fails with user-friendly error format
@@ -114,6 +115,7 @@ const TransactionButton = ({
   }, [isConfirmed, action, token.address, account, contractAddress, chainId, queryClient]);
 
   const handleClick = async () => {
+    setTxHash(null);
     setErrorMessage("");
 
     // CRITICAL: Verify we're on the correct network before ANY transaction
@@ -227,12 +229,17 @@ const TransactionButton = ({
         type="submit"
         value={title}
         onClick={handleClick}
-        disabled={disabled || isWritePending || isConfirming || isBytecodeLoading || !isContractDeployed}
+        disabled={
+          disabled || isWritePending || isConfirming || isBytecodeLoading || !isContractDeployed || !contractAddress
+        }
       />
       <div className="status">
         {message && <div>{message}</div>}
         {isBytecodeLoading && <div className="pending">checking if disperse contract is deployed...</div>}
-        {!isBytecodeLoading && !isContractDeployed && !errorMessage && (
+        {!isBytecodeLoading && !contractAddress && !errorMessage && (
+          <div className="failed">disperse contract address not available</div>
+        )}
+        {contractAddress && !isBytecodeLoading && !isContractDeployed && !errorMessage && (
           <div className="failed">disperse contract not deployed</div>
         )}
         {isWritePending && <div className="pending">sign transaction with wallet</div>}

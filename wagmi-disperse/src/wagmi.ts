@@ -1,3 +1,4 @@
+import { fallback } from "viem";
 import { http, createConfig } from "wagmi";
 import { arbitrumSepolia, mainnet, arbitrum, sepolia, optimism, gnosis } from "wagmi/chains";
 import type { Chain } from "wagmi/chains";
@@ -15,6 +16,13 @@ const supportedChains = [
   gnosis,
 ] as [Chain, ...Chain[]];
 
+const MAINNET_RPCS = [
+  "https://ethereum-rpc.publicnode.com",
+  "https://eth.llamarpc.com",
+  "https://1rpc.io/eth",
+  "https://eth.drpc.org",
+];
+
 export const config = createConfig({
   chains: supportedChains,
   connectors: [
@@ -23,7 +31,9 @@ export const config = createConfig({
     coinbaseWallet(),
     walletConnect({ projectId: import.meta.env.VITE_WC_PROJECT_ID || "YOUR_PROJECT_ID" }),
   ],
-  transports: Object.fromEntries(supportedChains.map((chain) => [chain.id, http()])),
+  transports: Object.fromEntries(
+    supportedChains.map((chain) => [chain.id, chain.id === 1 ? fallback(MAINNET_RPCS.map((url) => http(url))) : http()]),
+  ),
 });
 
 declare module "wagmi" {

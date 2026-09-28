@@ -22,7 +22,14 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
   const currentChainId = useChainId();
 
   // Use CreateX to deploy the contract - use generic writeContract to set address for any chain
-  const { writeContract, isPending, isError, error, data: contractWriteData } = useWriteContract();
+  const {
+    writeContract,
+    isPending,
+    isError,
+    error,
+    data: contractWriteData,
+    reset: resetWriteContract,
+  } = useWriteContract();
 
   // Handle errors from writeContract hook
   useEffect(() => {
@@ -45,7 +52,11 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
   const expectedAddress = disperse_createx.address as `0x${string}`;
 
   // Check if contract already exists at expected address - customize for speed
-  const { data: bytecode, isLoading: isBytecodeLoading } = useBytecode({
+  const {
+    data: bytecode,
+    isLoading: isBytecodeLoading,
+    refetch: refetchBytecode,
+  } = useBytecode({
     address: expectedAddress,
     chainId,
     query: {
@@ -68,11 +79,15 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
   const isCreateXDeployed = createXBytecode && createXBytecode !== "0x";
 
   const {
+    data: receipt,
     isLoading: isConfirming,
     isSuccess: isConfirmed,
     error: txError,
   } = useWaitForTransactionReceipt({
-    hash: txHash as `0x${string}` | undefined,
+    hash: txHash ?? undefined,
+    query: {
+      enabled: !!txHash,
+    },
   });
 
   // Handle transaction errors
@@ -84,9 +99,43 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
     }
   }, [txError, txHash]);
 
+  useEffect(() => {
+    if (!receipt || deployedAddress) return;
+
+    if (receipt.status === "reverted") {
+      setErrorMessage("Deployment transaction reverted");
+      setIsDeploying(false);
+      return;
+    }
+
+    const finalizeDeployment = async () => {
+      try {
+        const { data: freshBytecode } = await refetchBytecode();
+        if (freshBytecode && freshBytecode !== "0x") {
+          setDeployedAddress(expectedAddress);
+          onSuccess?.(expectedAddress);
+          setIsDeploying(false);
+        } else {
+          setErrorMessage("Deployment confirmed, but contract bytecode was not found at the expected address");
+          setIsDeploying(false);
+        }
+      } catch (error: unknown) {
+        setErrorMessage(
+          (error as BaseError)?.shortMessage || (error as Error)?.message || "Failed to verify deployment",
+        );
+        setIsDeploying(false);
+      }
+    };
+
+    void finalizeDeployment();
+  }, [receipt, deployedAddress, expectedAddress, onSuccess, refetchBytecode]);
+
   const handleDeploy = async () => {
+    resetWriteContract();
     setIsDeploying(true);
     setErrorMessage("");
+    setTxHash(null);
+    setDeployedAddress(null);
 
     // CRITICAL: Verify we're on the correct network before deployment
     if (currentChainId !== EXPECTED_CHAIN_ID) {
@@ -185,7 +234,7 @@ const DeployContract = ({ chainId, onSuccess }: DeployContractProps) => {
               type="submit"
               value="deploy contract"
               onClick={handleDeploy}
-              disabled={isDeploying || isConfirming || isPending || isError}
+              disabled={isDeploying || isConfirming || isPending}
             />
 
             <div className="status">

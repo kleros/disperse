@@ -87,7 +87,6 @@ function App() {
     isChainSupported,
     isContractDeployed,
     isBytecodeLoading,
-    hasContractAddress,
     sending,
     token,
   });
@@ -278,6 +277,8 @@ function App() {
           disperseMessage={disperseMessage}
           chainId={chainId}
           verifiedAddress={verifiedAddress}
+          isContractDeployed={isContractDeployed}
+          isBytecodeLoading={isBytecodeLoading}
           account={address}
           nativeCurrencyName={nativeCurrencyName}
           effectiveAllowance={effectiveAllowance}

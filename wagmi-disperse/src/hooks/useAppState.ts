@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { AppState } from "../constants";
 import type { TokenInfo } from "../types";
 
+const DEBUG = import.meta.env.DEV;
 const debug = (message: string, data?: unknown) => {
+  if (!DEBUG) return;
   console.log(`[DEBUG] ${message}`, data || "");
 };
 
@@ -13,7 +15,6 @@ interface UseAppStateProps {
   isChainSupported: boolean;
   isContractDeployed: boolean;
   isBytecodeLoading: boolean;
-  hasContractAddress: boolean;
   sending: "ether" | "token" | null;
   token: TokenInfo;
 }
@@ -25,7 +26,6 @@ export function useAppState({
   isChainSupported,
   isContractDeployed,
   isBytecodeLoading,
-  hasContractAddress,
   sending,
   token,
 }: UseAppStateProps) {
@@ -46,7 +46,8 @@ export function useAppState({
     if (status === "disconnected") {
       setAppState(AppState.UNLOCK_WALLET);
     } else if (isConnected && (!isContractDeployed || !isChainSupported)) {
-      if (isBytecodeLoading && hasContractAddress) {
+      if (isBytecodeLoading) {
+        setAppState(AppState.NETWORK_UNAVAILABLE);
         return;
       }
 
@@ -78,17 +79,7 @@ export function useAppState({
         }
       }
     }
-  }, [
-    status,
-    isConnected,
-    chainId,
-    isChainSupported,
-    isContractDeployed,
-    isBytecodeLoading,
-    hasContractAddress,
-    sending,
-    token,
-  ]);
+  }, [status, isConnected, chainId, isChainSupported, isContractDeployed, isBytecodeLoading, sending, token]);
 
   return { appState, setAppState };
 }
