@@ -733,3 +733,16 @@ h1 sup .chain-selector-dropdown {
   font-style: italic;
   color: rgba(0, 0, 0, 0.6);
 }
+
+/* Recipients */
+.recipients-note {
+  font-style: italic;
+}
+
+.warning-note {
+  color: #0060a8;
+}
+
+.address-item.skipped {
+  opacity: 0.55;
+}
