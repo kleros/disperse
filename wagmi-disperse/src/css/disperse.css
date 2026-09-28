@@ -645,3 +645,15 @@ h1 sup .chain-selector-dropdown {
   background: none;
   text-shadow: none;
 }
+
+/* Recent users */
+.qr-scan-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.recent-users-hint {
+  margin-top: -1rem;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.6);
+}

@@ -12,6 +12,16 @@ export default defineConfig({
       filename: "dist/stats.html",
     }),
   ],
+  server: {
+    proxy: {
+      // Mirrors public/_redirects: the upstream function sends no CORS headers.
+      "/api/listConnections": {
+        target: "https://v2-university.kleros.builders",
+        changeOrigin: true,
+        rewrite: () => "/.netlify/functions/listConnections",
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

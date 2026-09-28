@@ -8,12 +8,14 @@ import Header from "./components/Header";
 import NetworkStatus from "./components/NetworkStatus";
 import NetworkSwitcher from "./components/NetworkSwitcher";
 import QRRecipientInput from "./components/QRRecipientInput";
+import RecentUsersInput from "./components/RecentUsersInput";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
 import { AppState, EXPECTED_CHAIN_ID } from "./constants";
 import { useAppState } from "./hooks/useAppState";
 import { useContractVerification } from "./hooks/useContractVerification";
 import { useCurrencySelection } from "./hooks/useCurrencySelection";
+import { useRecipientAddresses } from "./hooks/useRecipientAddresses";
 import { useTokenAllowance } from "./hooks/useTokenAllowance";
 import type { Recipient } from "./types";
 import {
@@ -76,6 +78,7 @@ function App() {
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [amount, setAmount] = useState<string>("");
+  const { addresses: recipientAddresses, addAddresses, removeAddress } = useRecipientAddresses();
   const walletStatus = status === "connected" ? `logged in as ${address}` : "please unlock wallet";
 
   const { sending, token, setSending, setToken } = useCurrencySelection();
@@ -256,12 +259,18 @@ function App() {
         ((appState >= AppState.CONNECTED_TO_WALLET && sending === "ether") ||
           appState >= AppState.SELECTED_CURRENCY ||
           (sending === "token" && !!token.symbol)) && (
-          <QRRecipientInput
-            sending={sending}
-            token={token}
-            amount={amount}
-            onRecipientsChange={handleRecipientsChange}
-          />
+          <>
+            <RecentUsersInput onAddressesAdd={addAddresses} />
+            <QRRecipientInput
+              sending={sending}
+              token={token}
+              amount={amount}
+              addresses={recipientAddresses}
+              onAddressesAdd={addAddresses}
+              onAddressRemove={removeAddress}
+              onRecipientsChange={handleRecipientsChange}
+            />
+          </>
         )}
 
       {appState >= AppState.ENTERED_AMOUNTS && (

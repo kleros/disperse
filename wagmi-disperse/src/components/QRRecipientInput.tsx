@@ -8,46 +8,37 @@ interface QRRecipientInputProps {
   sending: "ether" | "token" | null;
   token: TokenInfo;
   amount: string;
+  addresses: `0x${string}`[];
+  /** Adds addresses to the shared list; returns how many were actually new. */
+  onAddressesAdd: (addresses: `0x${string}`[]) => number;
+  onAddressRemove: (address: string) => void;
   onRecipientsChange: (recipients: Recipient[]) => void;
 }
 
-const QRRecipientInput = ({ sending, token, amount, onRecipientsChange }: QRRecipientInputProps) => {
-  const [scannedAddresses, setScannedAddresses] = useState<`0x${string}`[]>(() => {
-    // Load addresses from localStorage on mount
-    try {
-      const stored = localStorage.getItem("disperse_scanned_addresses");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-    } catch (error) {
-      console.error("Failed to load addresses from localStorage:", error);
-    }
-    return [];
-  });
+const QRRecipientInput = ({
+  sending,
+  token,
+  amount,
+  addresses: scannedAddresses,
+  onAddressesAdd,
+  onAddressRemove,
+  onRecipientsChange,
+}: QRRecipientInputProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const lastScanTimeRef = useRef<number>(0);
-  const scannedAddressesRef = useRef<`0x${string}`[]>([]);
-  const qrCodeRegionId = "qr-reader";
-
-  // Save addresses to localStorage whenever they change
+  // Keep the latest add callback reachable from the long-lived scan callback
+  const onAddressesAddRef = useRef(onAddressesAdd);
   useEffect(() => {
-    try {
-      localStorage.setItem("disperse_scanned_addresses", JSON.stringify(scannedAddresses));
-    } catch (error) {
-      console.error("Failed to save addresses to localStorage:", error);
-    }
-  }, [scannedAddresses]);
+    onAddressesAddRef.current = onAddressesAdd;
+  }, [onAddressesAdd]);
+  const qrCodeRegionId = "qr-reader";
 
   // Update recipients whenever addresses or amount changes
   useEffect(() => {
-    // Keep ref in sync with state for use in scan callback
-    scannedAddressesRef.current = scannedAddresses;
-
     if (scannedAddresses.length === 0 || !amount) {
       onRecipientsChange([]);
       return;
@@ -94,14 +85,13 @@ const QRRecipientInput = ({ sending, token, amount, onRecipientsChange }: QRReci
           if (isAddress(decodedText)) {
             const normalizedAddress = decodedText.toLowerCase() as `0x${string}`;
 
-            // Check for duplicates (case-insensitive) - use ref to get current value
-            if (scannedAddressesRef.current.some((addr) => addr.toLowerCase() === normalizedAddress)) {
+            // The shared list dedupes case-insensitively against its latest value (not a stale render)
+            if (onAddressesAddRef.current([normalizedAddress]) === 0) {
               // Silently ignore duplicates - don't show message as scanner continuously reads QR
               lastScanTimeRef.current = now; // Update timestamp even for duplicates
               return;
             }
 
-            setScannedAddresses((prev) => [...prev, normalizedAddress]);
             setSuccessMessage(`Address added: ${normalizedAddress.slice(0, 10)}...`);
             setTimeout(() => setSuccessMessage(""), 2000);
             lastScanTimeRef.current = now; // Update timestamp after successful scan
@@ -154,9 +144,12 @@ const QRRecipientInput = ({ sending, token, amount, onRecipientsChange }: QRReci
     });
   }, []);
 
-  const handleRemoveAddress = useCallback((address: string) => {
-    setScannedAddresses((prev) => prev.filter((addr) => addr !== address));
-  }, []);
+  const handleRemoveAddress = useCallback(
+    (address: string) => {
+      onAddressRemove(address);
+    },
+    [onAddressRemove],
+  );
 
   return (
     <section>
