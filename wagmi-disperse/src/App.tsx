@@ -81,7 +81,8 @@ function App() {
   }, []);
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
-  const [amount, setAmount] = useState<string>("");
+  // Ether is the initial currency (useCurrencySelection), which bypasses selectCurrency
+  const [amount, setAmount] = useState<string>(DEFAULT_ETHER_AMOUNT);
   const { addresses: recipientAddresses, addAddresses, removeAddress } = useRecipientAddresses();
   const walletStatus = status === "connected" ? `logged in as ${address}` : "please unlock wallet";
 
