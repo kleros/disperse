@@ -9,6 +9,7 @@ import NetworkStatus from "./components/NetworkStatus";
 import NetworkSwitcher from "./components/NetworkSwitcher";
 import QRRecipientInput from "./components/QRRecipientInput";
 import RecentUsersInput from "./components/RecentUsersInput";
+import RecipientList from "./components/RecipientList";
 import TransactionSection from "./components/TransactionSection";
 const DebugPanel = lazy(() => import("./components/debug/DebugPanel"));
 import { AppState, EXPECTED_CHAIN_ID } from "./constants";
@@ -261,12 +262,12 @@ function App() {
           (sending === "token" && !!token.symbol)) && (
           <>
             <RecentUsersInput onAddressesAdd={addAddresses} />
-            <QRRecipientInput
+            <QRRecipientInput onAddressesAdd={addAddresses} />
+            <RecipientList
               sending={sending}
               token={token}
               amount={amount}
               addresses={recipientAddresses}
-              onAddressesAdd={addAddresses}
               onAddressRemove={removeAddress}
               onRecipientsChange={handleRecipientsChange}
             />

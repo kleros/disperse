@@ -66,7 +66,7 @@ const RecentUsersInput = ({ onAddressesAdd }: RecentUsersInputProps) => {
       }
     } catch (err) {
       if (controller.signal.aborted) return;
-      setErrorMessage(`Failed to load recent users: ${(err as Error).message}`);
+      setErrorMessage(`Failed to load university court users: ${(err as Error).message}`);
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -77,7 +77,7 @@ const RecentUsersInput = ({ onAddressesAdd }: RecentUsersInputProps) => {
 
   return (
     <section>
-      <h2>add recent users</h2>
+      <h2>add university court users</h2>
       <p>add the addresses of users who connected between the chosen date and now.</p>
 
       <div className="shadow">
@@ -94,14 +94,14 @@ const RecentUsersInput = ({ onAddressesAdd }: RecentUsersInputProps) => {
       <p className="recent-users-hint">until now</p>
 
       <button type="button" onClick={handleAdd} disabled={isLoading} className="qr-scan-button">
-        {isLoading ? "Loading..." : "Add Recent Users"}
+        {isLoading ? "Loading..." : "Add University Court Users"}
       </button>
 
       {errorMessage && <p className="error-message">{errorMessage}</p>}
       {successMessage && <p className="success-message">{successMessage}</p>}
 
       {invalidAddresses.length > 0 && (
-        <div className="scanned-addresses">
+        <div className="address-group">
           <h3>Invalid addresses ({invalidAddresses.length})</h3>
           <ul className="address-list">
             {invalidAddresses.map((address) => (

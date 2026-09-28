@@ -1,29 +1,13 @@
 import { Html5Qrcode } from "html5-qrcode";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { isAddress, parseUnits } from "viem";
-import type { Recipient, TokenInfo } from "../types";
-import { getDecimals } from "../utils/balanceCalculations";
+import { isAddress } from "viem";
 
 interface QRRecipientInputProps {
-  sending: "ether" | "token" | null;
-  token: TokenInfo;
-  amount: string;
-  addresses: `0x${string}`[];
-  /** Adds addresses to the shared list; returns how many were actually new. */
+  /** Adds addresses to the shared recipient list; returns how many were actually new. */
   onAddressesAdd: (addresses: `0x${string}`[]) => number;
-  onAddressRemove: (address: string) => void;
-  onRecipientsChange: (recipients: Recipient[]) => void;
 }
 
-const QRRecipientInput = ({
-  sending,
-  token,
-  amount,
-  addresses: scannedAddresses,
-  onAddressesAdd,
-  onAddressRemove,
-  onRecipientsChange,
-}: QRRecipientInputProps) => {
+const QRRecipientInput = ({ onAddressesAdd }: QRRecipientInputProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
@@ -36,29 +20,6 @@ const QRRecipientInput = ({
     onAddressesAddRef.current = onAddressesAdd;
   }, [onAddressesAdd]);
   const qrCodeRegionId = "qr-reader";
-
-  // Update recipients whenever addresses or amount changes
-  useEffect(() => {
-    if (scannedAddresses.length === 0 || !amount) {
-      onRecipientsChange([]);
-      return;
-    }
-
-    try {
-      const decimals = getDecimals(sending, token);
-      const parsedAmount = parseUnits(amount, decimals);
-
-      const recipients: Recipient[] = scannedAddresses.map((address) => ({
-        address,
-        value: parsedAmount,
-      }));
-
-      onRecipientsChange(recipients);
-    } catch (error) {
-      // Invalid amount format
-      onRecipientsChange([]);
-    }
-  }, [scannedAddresses, amount, sending, token, onRecipientsChange]);
 
   const startScanning = useCallback(async () => {
     try {
@@ -137,24 +98,10 @@ const QRRecipientInput = ({
     };
   }, []);
 
-  const handleCopyAddress = useCallback((address: string) => {
-    navigator.clipboard.writeText(address).then(() => {
-      setSuccessMessage("Copied to clipboard!");
-      setTimeout(() => setSuccessMessage(""), 2000);
-    });
-  }, []);
-
-  const handleRemoveAddress = useCallback(
-    (address: string) => {
-      onAddressRemove(address);
-    },
-    [onAddressRemove],
-  );
-
   return (
     <section>
       <h2>scan recipients</h2>
-      <p>scan Ethereum addresses as QR codes to add them to the recipient list.</p>
+      <p>scan Ethereum addresses as QR codes to add them to the recipients below.</p>
 
       {/* QR Scanner */}
       <div className="qr-scanner-container">
@@ -167,38 +114,6 @@ const QRRecipientInput = ({
         {errorMessage && <p className="error-message">{errorMessage}</p>}
         {successMessage && <p className="success-message">{successMessage}</p>}
       </div>
-
-      {/* Scanned Addresses List */}
-      {scannedAddresses.length > 0 && (
-        <div className="scanned-addresses">
-          <h3>Scanned Addresses ({scannedAddresses.length})</h3>
-          <ul className="address-list">
-            {scannedAddresses.map((address) => (
-              <li key={address} className="address-item">
-                <span className="address-text">{address}</span>
-                <div className="address-actions">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyAddress(address)}
-                    className="copy-button"
-                    title="Copy to clipboard"
-                  >
-                    Copy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAddress(address)}
-                    className="remove-button"
-                    title="Remove address"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 };

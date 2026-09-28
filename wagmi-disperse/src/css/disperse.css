@@ -538,12 +538,12 @@ h1 sup .chain-selector-dropdown {
   margin-top: 0.5rem;
 }
 
-/* Scanned Addresses List */
-.scanned-addresses {
+/* Address List (e.g. invalid recent users) */
+.address-group {
   margin-bottom: 1.4rem;
 }
 
-.scanned-addresses h3 {
+.address-group h3 {
   font-size: 1.6rem;
   margin-bottom: 0.7rem;
 }

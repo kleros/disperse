@@ -33,7 +33,7 @@ describe("RecentUsersInput", () => {
   it("renders the section with a datetime input defaulting to 24h ago", () => {
     render(<RecentUsersInput onAddressesAdd={onAddressesAdd} />);
 
-    expect(screen.getByText("add recent users")).toBeInTheDocument();
+    expect(screen.getByText("add university court users")).toBeInTheDocument();
     const input = screen.getByLabelText("from") as HTMLInputElement;
     expect(input.type).toBe("datetime-local");
     expect(input.value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
@@ -57,7 +57,7 @@ describe("RecentUsersInput", () => {
     ]);
 
     render(<RecentUsersInput onAddressesAdd={onAddressesAdd} />);
-    await user.click(screen.getByRole("button", { name: "Add Recent Users" }));
+    await user.click(screen.getByRole("button", { name: "Add University Court Users" }));
 
     await waitFor(() => expect(onAddressesAdd).toHaveBeenCalledTimes(1));
     expect(onAddressesAdd).toHaveBeenCalledWith([ADDR_A.toLowerCase(), ADDR_B]);
@@ -76,7 +76,7 @@ describe("RecentUsersInput", () => {
     onAddressesAdd.mockImplementationOnce(() => 1);
 
     render(<RecentUsersInput onAddressesAdd={onAddressesAdd} />);
-    await user.click(screen.getByRole("button", { name: "Add Recent Users" }));
+    await user.click(screen.getByRole("button", { name: "Add University Court Users" }));
 
     expect(await screen.findByText("added 1 address (1 already in list)")).toBeInTheDocument();
   });
@@ -86,7 +86,7 @@ describe("RecentUsersInput", () => {
     mockFetchJson([{ address: ADDR_A, timestamp: minutesAgo(3 * 24 * 60) }]);
 
     render(<RecentUsersInput onAddressesAdd={onAddressesAdd} />);
-    await user.click(screen.getByRole("button", { name: "Add Recent Users" }));
+    await user.click(screen.getByRole("button", { name: "Add University Court Users" }));
 
     expect(await screen.findByText("no users connected in this range")).toBeInTheDocument();
     expect(onAddressesAdd).not.toHaveBeenCalled();
@@ -97,13 +97,13 @@ describe("RecentUsersInput", () => {
     mockFetchJson([{ address: "0xbroken", timestamp: minutesAgo(1) }]);
 
     render(<RecentUsersInput onAddressesAdd={onAddressesAdd} />);
-    await user.click(screen.getByRole("button", { name: "Add Recent Users" }));
+    await user.click(screen.getByRole("button", { name: "Add University Court Users" }));
     expect(await screen.findByText("0xbroken")).toBeInTheDocument();
 
     mockFetchJson(null, { ok: false, status: 500 });
-    await user.click(screen.getByRole("button", { name: "Add Recent Users" }));
+    await user.click(screen.getByRole("button", { name: "Add University Court Users" }));
 
-    expect(await screen.findByText(/Failed to load recent users: .*500/)).toBeInTheDocument();
+    expect(await screen.findByText(/Failed to load university court users: .*500/)).toBeInTheDocument();
     expect(screen.queryByText("0xbroken")).not.toBeInTheDocument();
     expect(onAddressesAdd).not.toHaveBeenCalled();
   });
